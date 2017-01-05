@@ -33,6 +33,8 @@
 #ifndef __CODEC2__
 #define  __CODEC2__
 
+#define WIDEBAND_FFT_HACK
+
 #define CODEC2_MODE_3200 0
 #define CODEC2_MODE_2400 1
 #define CODEC2_MODE_1600 2
