@@ -2,6 +2,19 @@
 # Generated sources
 #
 
+if(NOT DEFINED SOVERSION)
+    set(SOVERSION 0.5)
+endif()
+
+if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
+    set(CMAKE_INSTALL_LIBDIR lib)
+endif()
+
+if(NOT DEFINED CMAKE_INSTALL_BINDIR)
+    set(CMAKE_INSTALL_BINDIR bin)
+endif()
+
+
 set(D ${CMAKE_CURRENT_SOURCE_DIR}/codebook)
 
 # lsp quantisers
