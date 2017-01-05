@@ -91,7 +91,7 @@ void codec2_encode_437_5(struct CODEC2 *c2, unsigned char * bits, short speech[]
 void codec2_decode_437_5(struct CODEC2 *c2, short speech[], const unsigned char * bits);
 void codec2_encode_437_5b(struct CODEC2 *c2, unsigned char * bits, short speech[]);
 void codec2_decode_437_5b(struct CODEC2 *c2, short speech[], const unsigned char * bits);
-#ifdef WIDEBAND_FFT_HACK
+#endif
 static void ear_protection(float in_out[], int n);
 
 /*---------------------------------------------------------------------------*\
