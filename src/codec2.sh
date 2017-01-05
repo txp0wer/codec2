@@ -8,7 +8,7 @@
 
 # i'm too lazy to implement command line parsing
 [[ "$bitrate" ]] || bitrate=1200 # minimum bitrate for stable version
-[[ "$lowpass" ]] || lowpass=200 # not sure if we really need this, but doesn't do any harm
+[[ "$highpass" ]] || highpass=200 # not sure if we really need this, but doesn't do any harm
 [[ "$error_rate" ]] || error_rate=0
 [[ "$samplerate" ]] || samplerate=8000
 
@@ -21,7 +21,7 @@ fi
 
 case "$1" in
   enc)
-    sox "$2" -r "$samplerate" -c 1 -t s16 --endian little /dev/stdout sinc "$lowpass" $filter $compand |
+    sox "$2" -r "$samplerate" -c 1 -t s16 --endian little /dev/stdout sinc "$highpass" $filter $compand |
       c2enc "$bitrate" /dev/stdin "$3"
   ;;
   dec)
@@ -29,7 +29,7 @@ case "$1" in
       sox -r "$samplerate" -c 1 -t s16 --endian little /dev/stdin "$3"
   ;;
   rec) 
-    rec -r "$samplerate" -c 1 -t s16 --endian little /dev/stdout sinc "$lowpass" $filter $compand |
+    rec -r "$samplerate" -c 1 -t s16 --endian little /dev/stdout sinc "$highpass" $filter $compand |
       c2enc "$bitrate" /dev/stdin "$3"
   ;;
   play)
@@ -38,15 +38,15 @@ case "$1" in
   ;;
   test) # encode, then decode and play, in order to check if it's still comprehensible
   if [[ "$2" ]]
-  then sox "$2" -r "$samplerate" -c 1 -t s16 --endian little /dev/stdout sinc "$lowpass" $filter $compand
-  else rec -r "$samplerate" -c 1 -t s16 --endian little /dev/stdout sinc "$lowpass" $filter $compand
+  then sox "$2" -r "$samplerate" -c 1 -t s16 --endian little /dev/stdout sinc "$highpass" $filter $compand
+  else rec -r "$samplerate" -c 1 -t s16 --endian little /dev/stdout sinc "$highpass" $filter $compand
   fi |
     c2enc "$bitrate" /dev/std{in,out} |
       c2dec "$bitrate" /dev/std{in,out} --ber "0.$(printf %03d "$error_rate")"|
         play -r "$samplerate" -c 1 -t s16 --endian little /dev/stdin
   ;;
   *)
-    echo "Usage: [samplerate=<hz>] [filter=<sox_filter>] [error_rate={0..999}] [bitrate={437.5B|437.5|700B|700|750|812.5|875|1000|1200|1300|1400|1500|1600|2000|2400|3200}] [lowpass=<freq>] [dyn_comp=off] $0 {enc|dec|rec|test} <infile> [<outfile>]" >>/dev/stderr
+    echo "Usage: [samplerate=<hz>] [filter=<sox_filter>] [error_rate={0..999}] [bitrate={437.5B|437.5|700B|700|750|812.5|875|1000|1200|1300|1400|1500|1600|2000|2400|3200}] [highpass=<freq>] [dyn_comp=off] $0 {enc|dec|rec|test} <infile> [<outfile>]" >>/dev/stderr
     exit 1
   ;;
 esac
