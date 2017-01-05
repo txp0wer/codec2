@@ -49,7 +49,7 @@
 #define CODEC2_MODE_1000   66
 #define CODEC2_MODE_875    67
 #define CODEC2_MODE_812_5  68
-#define CODEC2_MODE_750 5  69
+#define CODEC2_MODE_750    69
 #define CODEC2_MODE_437_5  70
 #define CODEC2_MODE_437_5B 71
 #endif

@@ -85,8 +85,8 @@ void codec2_encode_875(struct CODEC2 *c2, unsigned char * bits, short speech[]);
 void codec2_decode_875(struct CODEC2 *c2, short speech[], const unsigned char * bits);
 void codec2_encode_812_5(struct CODEC2 *c2, unsigned char * bits, short speech[]);
 void codec2_decode_812_5(struct CODEC2 *c2, short speech[], const unsigned char * bits, float ber_est);
-void codec2_encode_750_5(struct CODEC2 *c2, unsigned char * bits, short speech[]);
-void codec2_decode_750_5(struct CODEC2 *c2, short speech[], const unsigned char * bits);
+void codec2_encode_750(struct CODEC2 *c2, unsigned char * bits, short speech[]);
+void codec2_decode_750(struct CODEC2 *c2, short speech[], const unsigned char * bits);
 void codec2_encode_437_5(struct CODEC2 *c2, unsigned char * bits, short speech[]);
 void codec2_decode_437_5(struct CODEC2 *c2, short speech[], const unsigned char * bits);
 void codec2_encode_437_5b(struct CODEC2 *c2, unsigned char * bits, short speech[]);
@@ -372,7 +372,7 @@ void codec2_encode(struct CODEC2 *c2, unsigned char *bits, short speech[])
     if (c2->mode == CODEC2_MODE_812_5)
         codec2_encode_812_5(c2, bits, speech);
     if (c2->mode == CODEC2_MODE_750)
-        codec2_encode_750_5(c2, bits, speech);
+        codec2_encode_750(c2, bits, speech);
 #endif
 #ifndef CORTEX_M4
     if (c2->mode == CODEC2_MODE_700)
@@ -441,7 +441,7 @@ void codec2_decode_ber(struct CODEC2 *c2, short speech[], const unsigned char *b
     if (c2->mode == CODEC2_MODE_812_5)
         codec2_decode_812_5(c2, speech, bits, ber_est);
     if (c2->mode == CODEC2_MODE_750)
-        codec2_decode_750_5(c2, speech, bits);
+        codec2_decode_750(c2, speech, bits);
 #endif
 #ifndef CORTEX_M4
     if (c2->mode == CODEC2_MODE_700)
@@ -3427,7 +3427,7 @@ void codec2_encode_437_5(struct CODEC2 *c2, unsigned char * bits, short speech[]
 
 \*---------------------------------------------------------------------------*/
 
-void codec2_decode_700(struct CODEC2 *c2, short speech[], const unsigned char * bits)
+void codec2_decode_437_5(struct CODEC2 *c2, short speech[], const unsigned char * bits)
 {
     MODEL   model[4];
     int     indexes[LPC_ORD_LOW];
