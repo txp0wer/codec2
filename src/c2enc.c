@@ -46,7 +46,11 @@ int main(int argc, char *argv[])
     int            bit, byte,i;
 
     if (argc < 4) {
+#ifdef WIDEBAND_FFT_HACK
+        printf("usage: c2enc 3200|2400|2000|1600|1500|1400|1300|1200|1000|875|812.5|750|700|700B|437.5|437.5B InputRawspeechFile OutputBitFile [--natural] [--softdec]\n");
+#else
 	printf("usage: c2enc 3200|2400|1600|1400|1300|1200|700|700B InputRawspeechFile OutputBitFile [--natural] [--softdec]\n");
+#endif
 	printf("e.g    c2enc 1400 ../raw/hts1a.raw hts1a.c2\n");
 	printf("e.g    c2enc 1300 ../raw/hts1a.raw hts1a.c2 --natural\n");
 	exit(1);
@@ -68,8 +72,30 @@ int main(int argc, char *argv[])
 	mode = CODEC2_MODE_700;
     else if (strcmp(argv[1],"700B") == 0)
 	mode = CODEC2_MODE_700B;
+#ifdef WIDEBAND_FFT_HACK
+    else if (strcmp(argv[1],"2000") == 0)
+        mode = CODEC2_MODE_2000;
+    else if (strcmp(argv[1],"1500") == 0)
+        mode = CODEC2_MODE_1500;
+    else if (strcmp(argv[1],"1000") == 0)
+        mode = CODEC2_MODE_1000;
+    else if (strcmp(argv[1],"875") == 0)
+        mode = CODEC2_MODE_875;
+    else if (strcmp(argv[1],"812.5") == 0)
+        mode = CODEC2_MODE_812_5;
+    else if (strcmp(argv[1],"750") == 0)
+        mode = CODEC2_MODE_750;
+    else if (strcmp(argv[1],"437.5") == 0)
+        mode = CODEC2_MODE_437_5;
+    else if (strcmp(argv[1],"700B") == 0)
+        mode = CODEC2_MODE_437_5B;
+#endif
     else {
+#ifdef WIDEBAND_FFT_HACK
+        fprintf(stderr, "Error in mode: %s.  Must be 3200, 2400, 2000, 1600, 1500, 1400, 1300, 1200, 1000, 875, 812.5, 750, 700, 700B, 437.5 or 437.5B\n", argv[1]);
+#else
 	fprintf(stderr, "Error in mode: %s.  Must be 3200, 2400, 1600, 1400, 1300, 1200, 700 or 700B\n", argv[1]);
+#endif
 	exit(1);
     }
 

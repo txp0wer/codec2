@@ -41,7 +41,17 @@
 #define CODEC2_MODE_1200 5
 #define CODEC2_MODE_700  6
 #define CODEC2_MODE_700B 7
-
+#ifdef WIDEBAND_FFT_HACK
+#define CODEC2_MODE_2000   64
+#define CODEC2_MODE_1500   65
+#define CODEC2_MODE_1000   66
+#define CODEC2_MODE_875    67
+#define CODEC2_MODE_812_5  68
+#define CODEC2_MODE_750 5  69
+#define CODEC2_MODE_437_5  70
+#define CODEC2_MODE_437_5B 71
+#endif
+    
 struct CODEC2;
 
 struct CODEC2 *  codec2_create(int mode);
