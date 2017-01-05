@@ -35,17 +35,33 @@ struct CODEC2 {
     int           mode;
     codec2_fft_cfg  fft_fwd_cfg;             /* forward FFT config                        */
     codec2_fftr_cfg fftr_fwd_cfg;            /* forward real FFT config                   */
-    float         w[M_PITCH];	                   /* time domain hamming window                */
+#ifdef CODEC2_WIDEBAND
+    float         w[M_PITCH_WB];	                   /* time domain hamming window                */
+#else
+    float         w[M_PITCH];              /* time domain hamming window                */
+#endif
     COMP          W[FFT_ENC];	           /* DFT of w[]                                */
+#ifdef CODEC2_WIDEBAND
+    float         Pn[2*N_SAMP_WB];         /* trapezoidal synthesis window              */
+#else
     float         Pn[2*N_SAMP];	           /* trapezoidal synthesis window              */
+#endif
     float        *bpf_buf;                 /* buffer for band pass filter               */
+#ifdef CODEC2_WIDEBAND
+    float         Sn[M_PITCH_WB];                   /* input speech                              */
+#else
     float         Sn[M_PITCH];                   /* input speech                              */
+#endif
     float         hpf_states[2];           /* high pass filter states                   */
     void         *nlp;                     /* pitch predictor states                    */
     int           gray;                    /* non-zero for gray encoding                */
 
     codec2_fftr_cfg  fftr_inv_cfg;             /* inverse FFT config                        */
+#ifdef CODEC2_WIDEBAND
+    float         Sn_[2*N_SAMP_WB];        /* synthesised output speech                 */
+#else
     float         Sn_[2*N_SAMP];	           /* synthesised output speech                 */
+#endif
     float         ex_phase;                /* excitation model phase track              */
     float         bg_est;                  /* background noise estimate for post filter */
     float         prev_Wo_enc;             /* previous frame's pitch estimate           */

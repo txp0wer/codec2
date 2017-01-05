@@ -41,6 +41,13 @@ float est_voicing_mbe(MODEL *model, COMP Sw[], COMP W[]);
 void make_synthesis_window(float Pn[]);
 void synthesise(codec2_fftr_cfg fftr_inv_cfg, float Sn_[], MODEL *model, float Pn[], int shift);
 
+#ifdef CODEC2_WIDEBAND
+void make_analysis_window_wb(codec2_fft_cfg fft_fwd_cfg, float w[], COMP W[]);
+void dft_speech_wb(codec2_fft_cfg fft_fwd_cfg, COMP Sw[], float Sn[], float w[]);
+void make_synthesis_window_wb(float Pn[]);
+void synthesise_wb(codec2_fftr_cfg fftr_inv_cfg, float Sn_[], MODEL *model, float Pn[], int shift);
+#endif
+
 #define CODEC2_RAND_MAX 32767
 int codec2_rand(void);
 

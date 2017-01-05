@@ -168,7 +168,110 @@ void make_analysis_window(codec2_fft_cfg fft_fwd_cfg, float w[], COMP W[])
   }
 
 }
+#ifdef CODEC2_WIDEBAND
+void make_analysis_window_wb(codec2_fft_cfg fft_fwd_cfg, float w[], COMP W[])
+{
+  float m;
+  COMP  wshift[FFT_ENC];
+  COMP  temp;
+  int   i,j;
 
+  /*
+     Generate Hamming window centered on M-sample pitch analysis window
+
+  0            M/2           M-1
+  |-------------|-------------|
+        |-------|-------|
+            NW samples
+
+     All our analysis/synthsis is centred on the M/2 sample.
+  */
+
+  m = 0.0;
+  for(i=0; i<M_PITCH_WB/2-NW/2; i++)
+    w[i] = 0.0;
+  for(i=M_PITCH_WB/2-NW/2,j=0; i<M_PITCH_WB/2+NW/2; i++,j++) {
+    w[i] = 0.5 - 0.5*cosf(TWO_PI*j/(NW-1));
+    m += w[i]*w[i];
+  }
+  for(i=M_PITCH_WB/2+NW/2; i<M_PITCH_WB; i++)
+    w[i] = 0.0;
+
+  /* Normalise - makes freq domain amplitude estimation straight
+     forward */
+
+  m = 1.0/sqrtf(m*FFT_ENC);
+  for(i=0; i<M_PITCH_WB; i++) {
+    w[i] *= m;
+  }
+
+  /*
+     Generate DFT of analysis window, used for later processing.  Note
+     we modulo FFT_ENC shift the time domain window w[], this makes the
+     imaginary part of the DFT W[] equal to zero as the shifted w[] is
+     even about the n=0 time axis if NW is odd.  Having the imag part
+     of the DFT W[] makes computation easier.
+
+     0                      FFT_ENC-1
+     |-------------------------|
+
+      ----\               /----
+           \             /
+            \           /          <- shifted version of window w[n]
+             \         /
+              \       /
+               -------
+
+     |---------|     |---------|
+       NW/2              NW/2
+  */
+
+  for(i=0; i<FFT_ENC; i++) {
+    wshift[i].real = 0.0;
+    wshift[i].imag = 0.0;
+  }
+  for(i=0; i<NW/2; i++)
+    wshift[i].real = w[i+M_PITCH_WB/2];
+  for(i=FFT_ENC-NW/2,j=M_PITCH_WB/2-NW/2; i<FFT_ENC; i++,j++)
+   wshift[i].real = w[j];
+
+  codec2_fft(fft_fwd_cfg, wshift, W);
+
+  /*
+      Re-arrange W[] to be symmetrical about FFT_ENC/2.  Makes later
+      analysis convenient.
+
+   Before:
+
+
+     0                 FFT_ENC-1
+     |----------|---------|
+     __                   _
+       \                 /
+        \_______________/
+
+   After:
+
+     0                 FFT_ENC-1
+     |----------|---------|
+               ___
+              /   \
+     ________/     \_______
+
+  */
+
+
+  for(i=0; i<FFT_ENC/2; i++) {
+    temp.real = W[i].real;
+    temp.imag = W[i].imag;
+    W[i].real = W[i+FFT_ENC/2].real;
+    W[i].imag = W[i+FFT_ENC/2].imag;
+    W[i+FFT_ENC/2].real = temp.real;
+    W[i+FFT_ENC/2].imag = temp.imag;
+  }
+
+}
+#endif
 /*---------------------------------------------------------------------------*\
 
   FUNCTION....: hpf
@@ -225,6 +328,31 @@ void dft_speech(codec2_fft_cfg fft_fwd_cfg, COMP Sw[], float Sn[], float w[])
 
   codec2_fft_inplace(fft_fwd_cfg, Sw);
 }
+#ifdef CODEC2_WIDEBAND
+void dft_speech_wb(codec2_fft_cfg fft_fwd_cfg, COMP Sw[], float Sn[], float w[])
+{
+    int  i;
+  for(i=0; i<FFT_ENC; i++) {
+    Sw[i].real = 0.0;
+    Sw[i].imag = 0.0;
+  }
+
+  /* Centre analysis window on time axis, we need to arrange input
+     to FFT this way to make FFT phases correct */
+
+  /* move 2nd half to start of FFT input vector */
+
+  for(i=0; i<NW/2; i++)
+    Sw[i].real = Sn[i+M_PITCH_WB/2]*w[i+M_PITCH_WB/2];
+
+  /* move 1st half to end of FFT input vector */
+
+  for(i=0; i<NW/2; i++)
+    Sw[FFT_ENC-NW/2+i].real = Sn[i+M_PITCH_WB/2-NW/2]*w[i+M_PITCH_WB/2-NW/2];
+
+  codec2_fft_inplace(fft_fwd_cfg, Sw);
+}
+#endif
 #else
 void dft_speech(codec2_fftr_cfg fftr_fwd_cfg, COMP Sw[], float Sn[], float w[])
 {
@@ -250,6 +378,32 @@ void dft_speech(codec2_fftr_cfg fftr_fwd_cfg, COMP Sw[], float Sn[], float w[])
 
   codec2_fftr(fftr_fwd_cfg, sw, Sw);
 }
+#ifdef CODEC2_WIDEBAND
+void dft_speech_wb(codec2_fftr_cfg fftr_fwd_cfg, COMP Sw[], float Sn[], float w[])
+{
+    int  i;
+  float sw[FFT_ENC];
+
+  for(i=0; i<FFT_ENC; i++) {
+    sw[i] = 0.0;
+  }
+
+  /* Centre analysis window on time axis, we need to arrange input
+     to FFT this way to make FFT phases correct */
+
+  /* move 2nd half to start of FFT input vector */
+
+  for(i=0; i<NW/2; i++)
+    sw[i] = Sn[i+M_PITCH_WB/2]*w[i+M_PITCH_WB/2];
+
+  /* move 1st half to end of FFT input vector */
+
+  for(i=0; i<NW/2; i++)
+    sw[FFT_ENC-NW/2+i] = Sn[i+M_PITCH_WB/2-NW/2]*w[i+M_PITCH_WB/2-NW/2];
+
+  codec2_fftr(fftr_fwd_cfg, sw, Sw);
+}
+#endif
 #endif
 
 
@@ -556,6 +710,29 @@ void make_synthesis_window(float Pn[])
   for(i=3*N_SAMP/2+TW; i<2*N_SAMP; i++)
     Pn[i] = 0.0;
 }
+#ifdef CODEC2_WIDEBAND
+void make_synthesis_window_wb(float Pn[])
+{
+  int   i;
+  float win;
+
+  /* Generate Parzen window in time domain */
+
+  win = 0.0;
+  for(i=0; i<N_SAMP_WB/2-TW; i++)
+    Pn[i] = 0.0;
+  win = 0.0;
+  for(i=N_SAMP_WB/2-TW; i<N_SAMP_WB/2+TW; win+=1.0/(2*TW), i++ )
+    Pn[i] = win;
+  for(i=N_SAMP_WB/2+TW; i<3*N_SAMP_WB/2-TW; i++)
+    Pn[i] = 1.0;
+  win = 1.0;
+  for(i=3*N_SAMP_WB/2-TW; i<3*N_SAMP_WB/2+TW; win-=1.0/(2*TW), i++)
+    Pn[i] = win;
+  for(i=3*N_SAMP_WB/2+TW; i<2*N_SAMP_WB; i++)
+    Pn[i] = 0.0;
+}
+#endif
 
 /*---------------------------------------------------------------------------*\
 
@@ -659,7 +836,98 @@ void synthesise(
         for(i=N_SAMP-1,j=0; i<2*N_SAMP; i++,j++)
             Sn_[i] += sw_[j]*Pn[i] * FFTI_FACTOR;
 }
+#ifdef CODEC2_WIDEBAND
+void synthesise_wb(
+  codec2_fftr_cfg fftr_inv_cfg,
+  float  Sn_[],         /* time domain synthesised signal              */
+  MODEL *model,         /* ptr to model parameters for this frame      */
+  float  Pn[],          /* time domain Parzen window                   */
+  int    shift          /* flag used to handle transition frames       */
+)
+{
+    int   i,l,j,b;      /* loop variables */
+    COMP  Sw_[FFT_DEC/2+1];     /* DFT of synthesised signal */
+    float sw_[FFT_DEC]; /* synthesised signal */
 
+    if (shift) {
+        /* Update memories */
+        for(i=0; i<N_SAMP_WB-1; i++) {
+            Sn_[i] = Sn_[i+N_SAMP_WB];
+        }
+        Sn_[N_SAMP_WB-1] = 0.0;
+    }
+
+    for(i=0; i<FFT_DEC/2+1; i++) {
+        Sw_[i].real = 0.0;
+        Sw_[i].imag = 0.0;
+    }
+
+    /*
+      Nov 2010 - found that synthesis using time domain cos() functions
+      gives better results for synthesis frames greater than 10ms.  Inverse
+      FFT synthesis using a 512 pt FFT works well for 10ms window.  I think
+      (but am not sure) that the problem is related to the quantisation of
+      the harmonic frequencies to the FFT bin size, e.g. there is a
+      8000/512 Hz step between FFT bins.  For some reason this makes
+      the speech from longer frame > 10ms sound poor.  The effect can also
+      be seen when synthesising test signals like single sine waves, some
+      sort of amplitude modulation at the frame rate.
+
+      Another possibility is using a larger FFT size (1024 or 2048).
+    */
+
+#define FFT_SYNTHESIS
+#ifdef FFT_SYNTHESIS
+    /* Now set up frequency domain synthesised speech */
+    for(l=1; l<=model->L; l++) {
+        //for(l=model->L/2; l<=model->L; l++) {
+        //for(l=1; l<=model->L/4; l++) {
+        b = (int)(l*model->Wo*FFT_DEC/TWO_PI + 0.5);
+        if (b > ((FFT_DEC/2)-1)) {
+            b = (FFT_DEC/2)-1;
+        }
+        Sw_[b].real = model->A[l]*cosf(model->phi[l]);
+        Sw_[b].imag = model->A[l]*sinf(model->phi[l]);
+    }
+
+    /* Perform inverse DFT */
+
+    codec2_fftri(fftr_inv_cfg, Sw_,sw_);
+#else
+    /*
+       Direct time domain synthesis using the cos() function.  Works
+       well at 10ms and 20ms frames rates.  Note synthesis window is
+       still used to handle overlap-add between adjacent frames.  This
+       could be simplified as we don't need to synthesise where Pn[]
+       is zero.
+     */
+    for(l=1; l<=model->L; l++) {
+        for(i=0,j=-N_SAMP_WB+1; i<N_SAMP_WB-1; i++,j++) {
+            Sw_[FFT_DEC-N_SAMP_WB+1+i].real += 2.0*model->A[l]*cosf(j*model->Wo*l + model->phi[l]);
+        }
+        for(i=N_SAMP_WB-1,j=0; i<2*N_SAMP_WB; i++,j++)
+            Sw_[j].real += 2.0*model->A[l]*cosf(j*model->Wo*l + model->phi[l]);
+    }
+#endif
+
+    /* Overlap add to previous samples */
+#ifdef USE_KISS_FFT
+#define    FFTI_FACTOR ((float)1.0)
+#else
+#define    FFTI_FACTOR ((float32_t)FFT_DEC)
+#endif
+    for(i=0; i<N_SAMP_WB-1; i++) {
+        Sn_[i] += sw_[FFT_DEC-N_SAMP_WB+1+i]*Pn[i] * FFTI_FACTOR;
+    }
+
+    if (shift)
+        for(i=N_SAMP_WB-1,j=0; i<2*N_SAMP_WB; i++,j++)
+            Sn_[i] = sw_[j]*Pn[i] * FFTI_FACTOR;
+    else
+        for(i=N_SAMP_WB-1,j=0; i<2*N_SAMP_WB; i++,j++)
+            Sn_[i] += sw_[j]*Pn[i] * FFTI_FACTOR;
+}
+#endif
 
 static unsigned long next = 1;
 

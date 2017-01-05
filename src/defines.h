@@ -28,6 +28,8 @@
 #ifndef __DEFINES__
 #define __DEFINES__
 
+#include "codec2_wideband.h"
+
 /*---------------------------------------------------------------------------*\
 
 				DEFINES
@@ -58,6 +60,11 @@
 #define M_PITCH        320		/* pitch analysis frame size            */
 #define P_MIN    20		/* minimum pitch                        */
 #define P_MAX    160		/* maximum pitch                        */
+
+#ifdef CODEC2_WIDEBAND
+#define M_PITCH_WB     512      /* pitch analysis frame size            */
+#define N_SAMP_WB      128      /* number of samples per frame          */
+#endif
 
 /*---------------------------------------------------------------------------*\
 

@@ -212,3 +212,61 @@ void phase_synth_zero_order(
 
 }
 
+#ifdef CODEC2_WIDEBAND
+void phase_synth_zero_order_wb(
+    MODEL *model,
+    float *ex_phase,            /* excitation phase of fundamental        */
+    COMP   H[]                  /* L synthesis filter freq domain samples */
+
+)
+{
+    int   m;
+    float new_phi;
+    COMP  Ex[MAX_AMP+1];          /* excitation samples */
+    COMP  A_[MAX_AMP+1];          /* synthesised harmonic samples */
+
+    /*
+       Update excitation fundamental phase track, this sets the position
+       of each pitch pulse during voiced speech.  After much experiment
+       I found that using just this frame's Wo improved quality for UV
+       sounds compared to interpolating two frames Wo like this:
+
+       ex_phase[0] += (*prev_Wo+model->Wo)*N_SAMP_WB/2;
+    */
+
+    ex_phase[0] += (model->Wo)*N_SAMP_WB;
+    ex_phase[0] -= TWO_PI*floorf(ex_phase[0]/TWO_PI + 0.5);
+
+    for(m=1; m<=model->L; m++) {
+
+        /* generate excitation */
+
+        if (model->voiced) {
+
+            Ex[m].real = cosf(ex_phase[0]*m);
+            Ex[m].imag = sinf(ex_phase[0]*m);
+        }
+        else {
+
+            /* When a few samples were tested I found that LPC filter
+               phase is not needed in the unvoiced case, but no harm in
+               keeping it.
+            */
+            float phi = TWO_PI*(float)codec2_rand()/CODEC2_RAND_MAX;
+            Ex[m].real = cosf(phi);
+            Ex[m].imag = sinf(phi);
+        }
+
+        /* filter using LPC filter */
+
+        A_[m].real = H[m].real*Ex[m].real - H[m].imag*Ex[m].imag;
+        A_[m].imag = H[m].imag*Ex[m].real + H[m].real*Ex[m].imag;
+
+        /* modify sinusoidal phase */
+
+        new_phi = atan2f(A_[m].imag, A_[m].real+1E-12);
+        model->phi[m] = new_phi;
+    }
+
+}
+#endif

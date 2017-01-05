@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 	mode = CODEC2_MODE_700;
     else if (strcmp(argv[1],"700B") == 0)
 	mode = CODEC2_MODE_700B;
-#ifdef WIDEBAND_FFT_HACK
+#ifdef CODEC2_WIDEBAND
     else if (strcmp(argv[1],"2000") == 0)
         mode = CODEC2_MODE_2000;
     else if (strcmp(argv[1],"1500") == 0)
@@ -114,11 +114,11 @@ int main(int argc, char *argv[])
         mode = CODEC2_MODE_750;
     else if (strcmp(argv[1],"437.5") == 0)
         mode = CODEC2_MODE_437_5;
-    else if (strcmp(argv[1],"700B") == 0)
+    else if (strcmp(argv[1],"437.5B") == 0)
         mode = CODEC2_MODE_437_5B;
 #endif
     else {
-#ifdef WIDEBAND_FFT_HACK
+#ifdef CODEC2_WIDEBAND
         fprintf(stderr, "Error in mode: %s.  Must be 3200, 2400, 2000, 1600, 1500, 1400, 1300, 1200, 1000, 875, 812.5, 750, 700, 700B, 437.5 or 437.5B\n", argv[1]);
 #else
 	fprintf(stderr, "Error in mode: %s.  Must be 3200, 2400, 1600, 1400, 1300, 1200, 700 or 700B\n", argv[1]);
@@ -340,7 +340,7 @@ void print_help(const struct option* long_options, int num_opts, char* argv[])
 	int i;
 	char *option_parameters;
 	fprintf(stderr, "\nc2dec - Codec 2 decoder and bit error simulation program\n"
-#ifdef WIDEBAND_FFT_HACK
+#ifdef CODEC2_WIDEBAND
                 "usage: %s 3200|2400|2000|1600|1500|1400|1300|1200|1000|875|812.5|750|700|700B|437.5|437.5B InputFile OutputRawFile [OPTIONS]\n\n"
 #else
 		"usage: %s 3200|2400|1600|1400|1300|1200|700|700B InputFile OutputRawFile [OPTIONS]\n\n"

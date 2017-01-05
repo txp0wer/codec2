@@ -33,5 +33,6 @@
 
 void sample_phase(MODEL *model, COMP filter_phase[], COMP A[]);
 void phase_synth_zero_order(MODEL *model, float *ex_phase, COMP filter_phase[]);
+void phase_synth_zero_order_wb(MODEL *model, float *ex_phase, COMP filter_phase[]);
 
 #endif

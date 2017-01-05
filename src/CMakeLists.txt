@@ -185,6 +185,7 @@ set(CODEC2_PUBLIC_HEADERS
     codec2_fdmdv.h
     codec2_cohpsk.h
     codec2_fm.h
+    codec2_wideband.h
     fsk.h
     codec2_fifo.h
     comp.h
