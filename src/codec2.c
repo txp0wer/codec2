@@ -212,7 +212,6 @@ struct CODEC2 * codec2_create(int mode)
 
     c2->bpf_buf = (float*)malloc(sizeof(float)*(BPF_N+4*N_SAMP_AUTO));
     assert(c2->bpf_buf != NULL);
-    
     for(i=0; i<BPF_N+4*N_SAMP_AUTO; i++)
         c2->bpf_buf[i] = 0.0;
 
@@ -362,7 +361,7 @@ void codec2_encode(struct CODEC2 *c2, unsigned char *bits, short speech[])
            || (c2->mode == CODEC2_MODE_750)
            || (c2->mode == CODEC2_MODE_437_5)
            || (c2->mode == CODEC2_MODE_437_5B)
-#endif     
+#endif
 	   );
 
     if (c2->mode == CODEC2_MODE_3200)
@@ -400,7 +399,7 @@ void codec2_encode(struct CODEC2 *c2, unsigned char *bits, short speech[])
     if (c2->mode == CODEC2_MODE_437_5)
         codec2_encode_437_5(c2, bits, speech);
     if (c2->mode == CODEC2_MODE_437_5B)
-        codec2_encode_437_5b(c2, bits, speech);    
+        codec2_encode_437_5b(c2, bits, speech);
  #endif
 #endif
 }
@@ -2019,7 +2018,7 @@ float codec2_get_energy(struct CODEC2 *c2, const unsigned char *bits)
         e = decode_energy(e_index, 3);
     }
 #endif
-    
+
     return e;
 }
 
@@ -2213,7 +2212,7 @@ int codec2_get_spare_bit_index(struct CODEC2 *c2)
         break;
     case CODEC2_MODE_437_5B:
         return 27; // bit 27 is spare
-        break;    
+        break;
 #endif
     }
 
@@ -2792,8 +2791,8 @@ void codec2_decode_1000(struct CODEC2 *c2, short speech[], const unsigned char *
 
 /*---------------------------------------------------------------------------*\
 
-  FUNCTION....: codec2_encode_1400
   FUNCTION....: codec2_encode_875
+  BASED ON....: codec2_encode_1400
   AUTHOR......: David Rowe, txp0wer
   DATE CREATED: Jan 05 2017
 
@@ -3164,7 +3163,7 @@ void codec2_decode_812_5(struct CODEC2 *c2, short speech[], const unsigned char 
 
   FUNCTION....: codec2_encode_750
   BASED ON....: codec2_encode_1200
-  AUTHOR......: David Rowe
+  AUTHOR......: David Rowe, txp0wer
   DATE CREATED: Jan 05 2017
 
   Encodes 512 speech samples (64ms of speech) into 48 bits.
@@ -3339,7 +3338,7 @@ void codec2_decode_750(struct CODEC2 *c2, short speech[], const unsigned char * 
 /*---------------------------------------------------------------------------*\
 
   FUNCTION....: codec2_encode_437_5
-  FUNCTION....: codec2_encode_700
+  BASED ON....: codec2_encode_700
   AUTHOR......: David Rowe, txp0wer
   DATE CREATED: 05 Jan 2017
 

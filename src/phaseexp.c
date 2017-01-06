@@ -218,16 +218,6 @@ static void predict_phases(struct PEXP *pexp, MODEL *model, int start, int end) 
     }
 
 }
-#ifdef CODEC2_WIDEBAND
-static void predict_phases_wb(struct PEXP *pexp, MODEL *model, int start, int end) {
-    int i;
-
-    for(i=start; i<=end; i++) {
-        model->phi[i] = pexp->phi_prev[i] + N_SAMP_WB*i*model->Wo;
-    }
-
-}
-#endif
 static float refine_Wo(struct PEXP     *pexp,
 		       MODEL           *model,
 		       int              start,
@@ -276,48 +266,6 @@ static void predict_phases_state(struct PEXP *pexp, MODEL *model, int start, int
 	}
     printf("state %d\n", pexp->state);
 }
-#ifdef CODEC2_WIDEBAND
-static void predict_phases_state_wb(struct PEXP *pexp, MODEL *model, int start, int end) {
-    int i, next_state;
-    float best_Wo, dWo;
-
-    //best_Wo = refine_Wo(pexp, model, start, end);
-    //best_Wo = (model->Wo + pexp->Wo_prev)/2.0;
-    best_Wo = model->Wo;
-
-    dWo = fabs(model->Wo - pexp->Wo_prev)/model->Wo;
-    next_state = pexp->state;
-    switch(pexp->state) {
-    case 0:
-        if (dWo < 0.1) {
-            /* UV -> V transition, so start with phases in lock.  They will
-               drift a bit over voiced track which is kinda what we want, so
-               we don't get clicky speech.
-            */
-            next_state = 1;
-            for(i=start; i<=end; i++)
-                pexp->phi_prev[i] = i*pexp->phi1;
-        }
-
-        break;
-    case 1:
-        if (dWo > 0.1)
-            next_state = 0;
-        break;
-    }
-    pexp->state = next_state;
-
-    if (pexp->state == 0)
-        for(i=start; i<=end; i++) {
-            model->phi[i] = PI*(1.0 - 2.0*rand()/RAND_MAX);
-        }
-    else
-        for(i=start; i<=end; i++) {
-            model->phi[i] = pexp->phi_prev[i] + N_SAMP_WB*i*best_Wo;
-        }
-    printf("state %d\n", pexp->state);
-}
-#endif
 
 static void struct_phases(struct PEXP *pexp, MODEL *model, int start, int end) {
     int i;
@@ -345,25 +293,6 @@ static void predict_phases2(struct PEXP *pexp, MODEL *model, int start, int end)
     }
 
 }
-#ifdef CODEC2_WIDEBAND
-static void predict_phases2_wb(struct PEXP *pexp, MODEL *model, int start, int end) {
-    int i;
-    float pred, str, diff;
-
-    for(i=start; i<=end; i++) {
-        pred = pexp->phi_prev[i] + N_SAMP_WB*i*model->Wo;
-        str = pexp->phi1*i;
-        diff = str - pred;
-        diff = atan2(sin(diff), cos(diff));
-        if (diff > 0)
-            pred += PI/16;
-        else
-            pred -= PI/16;
-        model->phi[i] = pred;
-    }
-
-}
-#endif
 
 static void quant_phase(float *phase, float min, float max, int bits) {
     int   levels = 1 << bits;
@@ -855,42 +784,7 @@ static float refine_Wo(struct PEXP     *pexp,
 
     return best_Wo;
 }
-#ifdef CODEC2_WIDEBAND
-static float refine_Wo_wb(struct PEXP     *pexp,
-                       MODEL           *model,
-                       int              start,
-                       int              end)
 
-{
-    int i;
-    float Wo_est, best_var, Wo, var, pred, error, best_Wo;
-
-    /* test variance over a range of Wo values */
-
-    Wo_est = (model->Wo + pexp->Wo_prev)/2.0;
-    best_var = 1E32;
-    best_Wo = Wo_est;
-    for(Wo=0.97*Wo_est; Wo<=1.03*Wo_est; Wo+=0.001*Wo_est) {
-
-        /* predict phase and sum differences between harmonics */
-
-        var = 0.0;
-        for(i=start; i<=end; i++) {
-            pred = pexp->phi_prev[i] + N_SAMP_WB*i*Wo;
-            error = pred - model->phi[i];
-            error = atan2(sin(error),cos(error));
-            var += error*error;
-        }
-
-        if (var < best_var) {
-            best_var = var;
-            best_Wo = Wo;
-        }
-    }
-
-    return best_Wo;
-}
-#endif
 
 static void split_vq(COMP sparse_pe_out[], struct PEXP *pexp, struct codebook *vq, float weights[], COMP sparse_pe_in[])
 {
@@ -970,65 +864,6 @@ static void sparse_vq_pred_error(struct PEXP     *pexp,
     }
 }
 
-#ifdef CODEC2_WIDEBAND
-static void sparse_vq_pred_error_wb(struct PEXP     *pexp,
-                                 MODEL           *model
-)
-{
-    int              i, index;
-    float            pred, error, error_q_angle, best_Wo;
-    COMP             sparse_pe_in[MAX_AMP], sparse_pe_out[MAX_AMP];
-    float            weights[MAX_AMP];
-    COMP             error_q_rect;
-
-     best_Wo = refine_Wo(pexp, model, 1, model->L);
-    //best_Wo = (model->Wo + pexp->Wo_prev)/2.0;
-
-     /* transform to sparse pred error vector */
-
-    for(i=0; i<MAX_AMP; i++) {
-        sparse_pe_in[i].real = 0.0;
-        sparse_pe_in[i].imag = 0.0;
-        sparse_pe_out[i].real = 0.0;
-        sparse_pe_out[i].imag = 0.0;
-    }
-
-    //printf("\n");
-    for(i=1; i<=model->L; i++) {
-        pred = pexp->phi_prev[i] + N_SAMP_WB*i*best_Wo;
-        error = pred - model->phi[i];
-
-        index = MAX_AMP*i*model->Wo/PI;
-        assert(index < MAX_AMP);
-        sparse_pe_in[index].real = cos(error);
-        sparse_pe_in[index].imag = sin(error);
-        sparse_pe_out[index] = sparse_pe_in[index];
-        weights[index] = model->A[i];
-        //printf("%d ", index);
-    }
-
-    /* vector quantise */
-
-    split_vq(sparse_pe_out, pexp, pexp->vq1, weights, sparse_pe_in);
-    split_vq(sparse_pe_out, pexp, pexp->vq2, weights, sparse_pe_in);
-    split_vq(sparse_pe_out, pexp, pexp->vq3, weights, sparse_pe_in);
-    split_vq(sparse_pe_out, pexp, pexp->vq4, weights, sparse_pe_in);
-    split_vq(sparse_pe_out, pexp, pexp->vq5, weights, sparse_pe_in);
-
-    /* transform quantised phases back */
-
-    for(i=1; i<=model->L; i++) {
-        pred = pexp->phi_prev[i] + N_SAMP_WB*i*best_Wo;
-
-        index = MAX_AMP*i*model->Wo/PI;
-        assert(index < MAX_AMP);
-        error_q_rect  = sparse_pe_out[index];
-        error_q_angle = atan2(error_q_rect.imag, error_q_rect.real);
-        model->phi[i] = pred - error_q_angle;
-        model->phi[i] = atan2(sin(model->phi[i]), cos(model->phi[i]));
-    }
-}
-#endif
 
 /*
   This functions tests theory that some bands can be combined together
@@ -1131,103 +966,6 @@ void smooth_phase(struct PEXP *pexp, MODEL *model, int mode)
     }
 
 }
-#ifdef CODEC2_WIDEBAND
-void smooth_phase_wb(struct PEXP *pexp, MODEL *model, int mode)
-{
-    int    m, i, j, index, step, v, en, nav, st;
-    COMP   sparse_pe_in[MAX_AMP], av;
-    COMP   sparse_pe_out[MAX_AMP];
-    COMP   smoothed[MAX_AMP];
-    float  best_Wo, pred, err;
-    float  weights[MAX_AMP];
-    float  avw, smoothed_weights[MAX_AMP];
-    COMP   smoothed_in[MAX_AMP], smoothed_out[MAX_AMP];
-
-    best_Wo = refine_Wo(pexp, model, 1, model->L);
-
-    for(m=0; m<MAX_AMP; m++) {
-        sparse_pe_in[m].real = sparse_pe_in[m].imag = 0.0;
-        sparse_pe_out[m].real = sparse_pe_out[m].imag = 0.0;
-    }
-
-    /* set up sparse array */
-
-    for(m=1; m<=model->L; m++) {
-        pred = pexp->phi_prev[m] + N_SAMP*m*best_Wo;
-        err = model->phi[m] - pred;
-        err = atan2(sin(err),cos(err));
-
-        index = MAX_AMP*m*model->Wo/PI;
-        assert(index < MAX_AMP);
-        sparse_pe_in[index].real = model->A[m]*cos(err);
-        sparse_pe_in[index].imag = model->A[m]*sin(err);
-        sparse_pe_out[index] = sparse_pe_in[index];
-        weights[index] = model->A[m];
-    }
-
-    /* now combine samples at high frequencies to reduce dimension */
-
-    step = 2;
-    st = 0;
-    for(i=st,v=0; i<MAX_AMP; i+=step,v++) {
-
-        /* average over one band */
-
-        av.real = 0.0; av.imag = 0.0; avw = 0.0; nav = 0;
-        en = i+step;
-        if (en > (MAX_AMP-1))
-            en = MAX_AMP-1;
-        for(j=i; j<en; j++) {
-            if ((sparse_pe_in[j].real != 0.0) &&(sparse_pe_in[j].imag != 0.0) ) {
-                av = cadd(av, sparse_pe_in[j]);
-                avw += weights[j];
-                nav++;
-            }
-        }
-        if (nav) {
-            smoothed[v] = av;
-            smoothed_weights[v] = avw/nav;
-        }
-        else
-            smoothed[v].real = smoothed[v].imag = 0.0;
-    }
-
-    if (mode == 2) {
-        for(i=0; i<MAX_AMP; i++) {
-            smoothed_in[i] = smoothed[i];
-            smoothed_out[i] = smoothed_in[i];
-        }
-        split_vq(smoothed_out, pexp, pexp->vq1, smoothed_weights, smoothed_in);
-        for(i=0; i<MAX_AMP; i++)
-            smoothed[i] = smoothed_out[i];
-    }
-
-    /* set all samples to smoothed average */
-
-    for(i=st,v=0; i<MAX_AMP; i+=step,v++) {
-        en = i+step;
-        if (en > (MAX_AMP-1))
-            en = MAX_AMP-1;
-        for(j=i; j<en; j++)
-            sparse_pe_out[j] = smoothed[v];
-        if (mode == 1)
-            printf("%f ", atan2(smoothed[v].imag, smoothed[v].real));
-    }
-    if (mode == 1)
-        printf("\n");
-
-    /* convert back to Am */
-
-    for(m=1; m<=model->L; m++) {
-        index = MAX_AMP*m*model->Wo/PI;
-        assert(index < MAX_AMP);
-        pred = pexp->phi_prev[m] + N_SAMP_WB*m*best_Wo;
-        err = atan2(sparse_pe_out[index].imag, sparse_pe_out[index].real);
-        model->phi[m] = pred + err;
-    }
-
-}
-#endif
 
 /*
   Another version of a functions that tests the theory that some bands
@@ -1271,43 +1009,7 @@ void smooth_phase2(struct PEXP *pexp, MODEL *model) {
 	}
     }
 }
-#ifdef CODEC2_WIDEBAND
-void smooth_phase2_wb(struct PEXP *pexp, MODEL *model) {
-    float m;
-    float step;
-    int   a,b,h,i;
-    float best_Wo, pred, err, s,c, phi1_;
 
-    best_Wo = refine_Wo(pexp, model, 1, model->L);
-
-    step = (float)model->L/30;
-    printf("\nL: %d step: %3.2f am,bm: ", model->L, step);
-    for(m=(float)model->L/4; m<=model->L; m+=step) {
-        a = floor(m);
-        b = floor(m+step);
-        if (b > model->L) b = model->L;
-        h = b-a;
-
-        printf("%d,%d,(%d)  ", a, b, h);
-        c = s = 0.0;
-        if (h>1) {
-            for(i=a; i<b; i++) {
-                pred = pexp->phi_prev[i] + N_SAMP_WB*i*best_Wo;
-                err = model->phi[i] - pred;
-                c += cos(err); s += sin(err);
-            }
-            phi1_ = atan2(s,c);
-            for(i=a; i<b; i++) {
-                pred = pexp->phi_prev[i] + N_SAMP_WB*i*best_Wo;
-                printf("%d: %4.3f -> ", i, model->phi[i]);
-                model->phi[i] = pred + phi1_;
-                model->phi[i] = atan2(sin(model->phi[i]),cos(model->phi[i]));
-                printf("%4.3f  ", model->phi[i]);
-            }
-        }
-    }
-}
-#endif
 
 #define MAX_BINS 40
 //static float bins[] = {2600.0, 2800.0, 3000.0, 3200.0, 3400.0, 3600.0, 3800.0, 4000.0};
@@ -1387,76 +1089,6 @@ void smooth_phase3(struct PEXP *pexp, MODEL *model) {
     }
     printf("\n");
 }
-#ifdef CODEC2_WIDEBAND
-void smooth_phase3_wb(struct PEXP *pexp, MODEL *model) {
-    int    m, i;
-    int   nbins;
-    int   b;
-    float f, best_Wo, pred, err;
-    COMP  av[MAX_BINS];
-
-    nbins = sizeof(bins)/sizeof(float);
-    best_Wo = refine_Wo(pexp, model, 1, model->L);
-
-    /* clear all bins */
-
-    for(i=0; i<MAX_BINS; i++) {
-        av[i].real = 0.0;
-        av[i].imag = 0.0;
-    }
-
-    /* add phases into each bin */
-
-    for(m=1; m<=model->L; m++) {
-        f = m*model->Wo*FS/TWO_PI;
-        if (f > bins[0]) {
-
-            /* find bin  */
-
-            b = MAX_BINS;
-            for(i=0; i<nbins; i++)
-                if ((f > bins[i]) && (f <= bins[i+1]))
-                    b = i;
-            assert(b < MAX_BINS);
-
-            /* est predicted phase from average */
-
-            pred = pexp->phi_prev[m] + N_SAMP_WB*m*best_Wo;
-            err = model->phi[m] - pred;
-            av[b].real += cos(err); av[b].imag += sin(err);
-        }
-
-    }
-
-    /* use averages to est phases */
-
-    for(m=1; m<=model->L; m++) {
-        f = m*model->Wo*FS/TWO_PI;
-        if (f > bins[0]) {
-
-            /* find bin */
-
-            b = MAX_BINS; 
-            for(i=0; i<nbins; i++)
-                if ((f > bins[i]) && (f <= bins[i+1]))
-                    b = i;
-            assert(b < MAX_BINS);
-
-            /* add predicted phase error to this bin */
-
-            printf("L %d m %d f %4.f b %d\n", model->L, m, f, b);
-
-            pred = pexp->phi_prev[m] + N_SAMP_WB*m*best_Wo;
-            err = atan2(av[b].imag, av[b].real);
-            printf(" %d: %4.3f -> ", m, model->phi[m]);
-            model->phi[m] = pred + err;
-            model->phi[m] = atan2(sin(model->phi[m]),cos(model->phi[m]));
-            printf("%4.3f\n", model->phi[m]);
-        }
-    }
-    printf("\n");
-}
-#endif
 
 
 /*
@@ -1569,49 +1201,7 @@ void cb_phase2(struct PEXP *pexp, MODEL *model) {
     }
     printf("\n");
 }
-#ifdef CODEC2_WIDEBAND
-void cb_phase2_wb(struct PEXP *pexp, MODEL *model) {
-    int   st, m, i, a, b, step;
-    float diff,w,c,s;
-    float A[MAX_AMP];
 
-    for(m=1; m<=model->L; m++) {
-        A[m] = model->A[m];
-        model->A[m] = 0;
-    }
-
-    st = 2*model->L/4;
-    step = 3;
-    model->phi[1] = pexp->phi_prev[1] + (pexp->Wo_prev+model->Wo)*N_SAMP_WB/2.0;
-
-    printf("L=%d ", model->L);
-    for(m=st; m<st+step*2; m+=step) {
-        a = m; b=a+step;
-        if (b > model->L)
-            b = model->L;
-
-        c = s = 0;
-        for(i=a; i<b-1; i++) {
-            printf("diff %d,%d ", i, i+1);
-            diff = model->phi[i+1] - model->phi[i];
-            //w = (model->A[i+1] + model->A[i])/2;
-            w = 1.0;
-            c += w*cos(diff); s += w*sin(diff);
-        }
-        // float phi1_ = atan2(s,c);
-        printf("replacing: ");
-        for(i=a; i<b; i++) {
-            //model->phi[i] = i*phi1_;
-            //model->phi[i] = i*model->phi[1];
-            //model->phi[i] = m*(pexp->Wo_prev+model->Wo)*N_SAMP_WB/2.0;
-            model->A[m] = A[m];
-            printf("%d ", i);
-        }
-        printf(" . ");
-    }
-    printf("\n");
-}
-#endif
 
 static void smooth_phase4(MODEL *model) {
     int    m;
@@ -1642,16 +1232,6 @@ static void repeat_phases(struct PEXP *pexp, MODEL *model) {
 	model->phi[m] += N_SAMP*m*model->Wo;
 
 }
-#ifdef CODEC2_WIDEBAND
-static void repeat_phases_wb(struct PEXP *pexp, MODEL *model) {
-    int m;
-
-    *model = pexp->prev_model;
-    for(m=1; m<=model->L; m++)
-        model->phi[m] += N_SAMP_WB*m*model->Wo;
-
-}
-#endif
 
 /*---------------------------------------------------------------------------*\
 
@@ -1781,128 +1361,6 @@ void phase_experiment(struct PEXP *pexp, MODEL *model, char *arg) {
     pexp->frames++;
     pexp->prev_model = *model;
 }
-#ifdef CODEC2_WIDEBAND
-void phase_experiment_wb(struct PEXP *pexp, MODEL *model, char *arg) {
-    int              m;
-    float            before[MAX_AMP];
-
-    assert(pexp != NULL);
-    memcpy(before, &model->phi[0], sizeof(float)*MAX_AMP);
-
-    if (strcmp(arg,"q3") == 0) {
-        quant_phases(model, 1, model->L, 3);
-        update_snr_calc(pexp, model, before);
-        update_variance_calc(pexp, model, before);
-    }
-
-    if (strcmp(arg,"dec2") == 0) {
-        if ((pexp->frames % 2) != 0) {
-            predict_phases(pexp, model, 1, model->L);
-            update_snr_calc(pexp, model, before);
-            update_variance_calc(pexp, model, before);
-        }
-    }
-
-    if (strcmp(arg,"repeat") == 0) {
-        if ((pexp->frames % 2) != 0) {
-            repeat_phases(pexp, model);
-            update_snr_calc(pexp, model, before);
-            update_variance_calc(pexp, model, before);
-        }
-    }
-
-    if (strcmp(arg,"vq") == 0) {
-        sparse_vq_pred_error(pexp, model);
-        update_snr_calc(pexp, model, before);
-        update_variance_calc(pexp, model, before);
-    }
-
-    if (strcmp(arg,"pred") == 0)
-        predict_phases_state(pexp, model, 1, model->L);
-
-    if (strcmp(arg,"pred1k") == 0)
-        predict_phases(pexp, model, 1, model->L/4);
-
-    if (strcmp(arg,"smooth") == 0) {
-        smooth_phase(pexp, model,0);
-        update_snr_calc(pexp, model, before);
-    }
-    if (strcmp(arg,"smoothtrain") == 0)
-        smooth_phase(pexp, model,1);
-    if (strcmp(arg,"smoothvq") == 0) {
-        smooth_phase(pexp, model,2);
-        update_snr_calc(pexp, model, before);
-    }
-
-    if (strcmp(arg,"smooth2") == 0)
-        smooth_phase2(pexp, model);
-    if (strcmp(arg,"smooth3") == 0)
-        smooth_phase3(pexp, model);
-    if (strcmp(arg,"smooth4") == 0)
-        smooth_phase4(model);
-    if (strcmp(arg,"vqsmooth3") == 0)  {
-        sparse_vq_pred_error(pexp, model);
-        smooth_phase3(pexp, model);
-    }
-
-    if (strcmp(arg,"cb1") == 0) {
-        cb_phase1(pexp, model);
-        update_snr_calc(pexp, model, before);
-    }
-
-    if (strcmp(arg,"top") == 0) {
-        //top_amp(pexp, model, 1, model->L/4, 4, 1);
-        //top_amp(pexp, model, model->L/4, model->L/3, 4, 1);
-        //top_amp(pexp, model, model->L/3+1, model->L/2, 4, 1);
-        //top_amp(pexp, model, model->L/2, model->L, 6, 1);
-        //rand_phases(model, model->L/2, 3*model->L/4);
-        //struct_phases(pexp, model, model->L/2, 3*model->L/4);
-        //update_snr_calc(pexp, model, before);
-    }
-
-    if (strcmp(arg,"pred23") == 0) {
-        predict_phases2(pexp, model, model->L/2, model->L);
-        update_snr_calc(pexp, model, before);
-    }
-
-    if (strcmp(arg,"struct23") == 0) {
-        struct_phases(pexp, model, model->L/2, 3*model->L/4 );
-        update_snr_calc(pexp, model, before);
-    }
-
-    if (strcmp(arg,"addnoise") == 0) {
-        int m;
-        float max;
-
-        max = 0;
-        for(m=1; m<=model->L; m++)
-            if (model->A[m] > max)
-                max = model->A[m];
-        max = 20.0*log10(max);
-        for(m=1; m<=model->L; m++)
-            if (20.0*log10(model->A[m]) < (max-20)) {
-                model->phi[m] += (PI/4)*(1.0 -2.0*rand()/RAND_MAX);
-                //printf("m %d\n", m);
-            }
-    }
-
-    /* normalise phases */
-
-    for(m=1; m<=model->L; m++)
-        model->phi[m] = atan2(sin(model->phi[m]), cos(model->phi[m]));
-
-    /* update states */
-
-    //best_Wo = refine_Wo(pexp, model,  model->L/2, model->L);
-    pexp->phi1 += N_SAMP_WB*model->Wo;
-
-    for(m=1; m<=model->L; m++)
-        pexp->phi_prev[m] = model->phi[m];
-    pexp->Wo_prev = model->Wo;
-    pexp->frames++;
-    pexp->prev_model = *model;
-}
-#endif
 
 #ifdef OLD_STUFF
     //quant_phases(model, 1, model->L, 3);

@@ -35,8 +35,5 @@ struct PEXP;
 struct PEXP * phase_experiment_create();
 void phase_experiment_destroy(struct PEXP *pexp);
 void phase_experiment(struct PEXP *pexp, MODEL *model, char *arg);
-#ifdef CODEC2_WIDEBAND
-void phase_experiment_wb(struct PEXP *pexp, MODEL *model, char *arg);
-#endif
 
 #endif

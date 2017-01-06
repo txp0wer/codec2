@@ -54,7 +54,7 @@
 #define CODEC2_MODE_437_5  70
 #define CODEC2_MODE_437_5B 71
 #endif
-    
+
 struct CODEC2;
 
 struct CODEC2 *  codec2_create(int mode);
